@@ -1,7 +1,5 @@
 import express from "express";
-import path from "path";
-import { createServer as createViteServer } from "vite";
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -179,105 +177,36 @@ Execute your investigation and return the corresponding JSON response.
 `;
 
     // 4. Call Gemini with strict JSON Schema
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: userPrompt,
-      config: {
-        systemInstruction: systemInstruction,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            ticket_id: {
-              type: Type.STRING,
-              description: "Must match the input ticket_id exactly."
-            },
-            relevant_transaction_id: {
-              type: Type.STRING,
-              nullable: true,
-              description: "The transaction ID from the provided history that the complaint refers to, or null if no transaction matches."
-            },
-            evidence_verdict: {
-              type: Type.STRING,
-              enum: ["consistent", "inconsistent", "insufficient_data"],
-              description: "Must be consistent, inconsistent, or insufficient_data."
-            },
-            case_type: {
-              type: Type.STRING,
-              enum: [
-                "wrong_transfer",
-                "payment_failed",
-                "refund_request",
-                "duplicate_payment",
-                "merchant_settlement_delay",
-                "agent_cash_in_issue",
-                "phishing_or_social_engineering",
-                "other"
-              ],
-              description: "Category matching Section 7.1 of PDF."
-            },
-            severity: {
-              type: Type.STRING,
-              enum: ["low", "medium", "high", "critical"],
-              description: "The severity of the case based on risk and value."
-            },
-            department: {
-              type: Type.STRING,
-              enum: [
-                "customer_support",
-                "dispute_resolution",
-                "payments_ops",
-                "merchant_operations",
-                "agent_operations",
-                "fraud_risk"
-              ],
-              description: "Routed department matching Section 7.2 of PDF."
-            },
-            agent_summary: {
-              type: Type.STRING,
-              description: "Concise summary of the case for the agent (1-2 sentences)."
-            },
-            recommended_next_action: {
-              type: Type.STRING,
-              description: "Suggested next step. NEVER confirm refunds or unblocks."
-            },
-            customer_reply: {
-              type: Type.STRING,
-              description: "Draft reply to customer. NEVER ask for PIN/OTP/password/card number. NEVER confirm refunds."
-            },
-            human_review_required: {
-              type: Type.BOOLEAN,
-              description: "True if human review is required, else false."
-            },
-            confidence: {
-              type: Type.NUMBER,
-              description: "Float between 0 and 1."
-            },
-            reason_codes: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-              description: "Reason tags supporting the decision."
-            }
-          },
-          required: [
-            "ticket_id",
-            "relevant_transaction_id",
-            "evidence_verdict",
-            "case_type",
-            "severity",
-            "department",
-            "agent_summary",
-            "recommended_next_action",
-            "customer_reply",
-            "human_review_required",
-            "confidence",
-            "reason_codes"
-          ]
-        }
+    const responseSchema = {
+      type: "object",
+      properties: {
+        ticket_id: { type: "string", description: "Must match the input ticket_id exactly." },
+        relevant_transaction_id: { type: "string", nullable: true, description: "The transaction ID from the provided history that the complaint refers to, or null if no match." },
+        evidence_verdict: { type: "string", enum: ["consistent", "inconsistent", "insufficient_data"] },
+        case_type: { type: "string", enum: ["wrong_transfer", "payment_failed", "refund_request", "duplicate_payment", "merchant_settlement_delay", "agent_cash_in_issue", "phishing_or_social_engineering", "other"] },
+        severity: { type: "string", enum: ["low", "medium", "high", "critical"] },
+        department: { type: "string", enum: ["customer_support", "dispute_resolution", "payments_ops", "merchant_operations", "agent_operations", "fraud_risk"] },
+        agent_summary: { type: "string" },
+        recommended_next_action: { type: "string" },
+        customer_reply: { type: "string" },
+        human_review_required: { type: "boolean" },
+        confidence: { type: "number" },
+        reason_codes: { type: "array", items: { type: "string" } }
+      },
+      required: ["ticket_id", "relevant_transaction_id", "evidence_verdict", "case_type", "severity", "department", "agent_summary", "recommended_next_action", "customer_reply", "human_review_required", "confidence", "reason_codes"]
+    };
+
+    const response = await ai.interactions.create({
+      model: "gemini-2.0-flash",
+      input: systemInstruction + "\n\n" + userPrompt,
+      response_format: {
+        type: "text",
+        mime_type: "application/json",
+        schema: responseSchema
       }
     });
 
-    const text = response.text || "{}";
+    const text = response.output_text || "{}";
     const resultObj = JSON.parse(text);
 
     // Double check that ticket_id is echoed perfectly
@@ -302,25 +231,6 @@ Execute your investigation and return the corresponding JSON response.
 app.post("/analyze-ticket", handleAnalyzeTicket);
 app.post("/api/analyze-ticket", handleAnalyzeTicket);
 
-// Vite / static file serving
-async function initializeServer() {
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
-  }
-
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`QueueStorm Investigator server running on port ${PORT}`);
-  });
-}
-
-initializeServer();
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`QueueStorm Investigator server running on port ${PORT}`);
+});
