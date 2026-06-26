@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "build": "echo Build complete",
     "start": "node server.js",
     "dev": "node server.js"
   },
