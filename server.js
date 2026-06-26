@@ -228,9 +228,19 @@ Execute your investigation and return the corresponding JSON response.
   }
 };
 
+// Root route
+app.get("/", (req, res) => {
+  res.json({ status: "ok", message: "QueueStorm Investigator API is running." });
+});
+
 app.post("/analyze-ticket", handleAnalyzeTicket);
 app.post("/api/analyze-ticket", handleAnalyzeTicket);
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`QueueStorm Investigator server running on port ${PORT}`);
-});
+// Export for Vercel serverless; also listen locally
+if (process.env.VERCEL !== "1") {
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`QueueStorm Investigator server running on port ${PORT}`);
+  });
+}
+
+export default app;
