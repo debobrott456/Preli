@@ -1,0 +1,6 @@
+{
+  "name": "QueueStorm Investigator",
+  "description": "AI-powered SupportOps Ticket Analyzer for digital finance complaints and transaction verification.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
